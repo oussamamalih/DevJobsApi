@@ -11,11 +11,12 @@ use Illuminate\Notifications\Notifiable;
 use App\Models\Entreprise;
 use App\Models\Candidature;
 
+use Laravel\Sanctum\HasApiTokens;
+
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
-    use HasFactory, Notifiable;
-
+    use HasApiTokens, HasFactory, Notifiable;
     /**
      * The attributes that are mass assignable.
      *
