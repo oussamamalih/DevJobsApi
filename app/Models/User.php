@@ -8,6 +8,9 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
+use App\Models\Entreprise;
+use App\Models\Candidature;
+
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
@@ -19,9 +22,11 @@ class User extends Authenticatable
      * @var list<string>
      */
     protected $fillable = [
-        'name',
-        'email',
-        'password',
+          'first_name',
+    'last_name',
+    'email',
+    'password',
+    'role',
     ];
 
     /**
@@ -46,4 +51,17 @@ class User extends Authenticatable
             'password' => 'hashed',
         ];
     }
+
+
+
+    public function entreprise()
+{
+    return $this->hasOne(Entreprise::class);
+}
+
+
+public function candidatures()
+{
+    return $this->hasMany(Candidature::class);
+}
 }

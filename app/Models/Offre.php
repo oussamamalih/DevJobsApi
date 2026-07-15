@@ -3,8 +3,27 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use App\Models\Entreprise;
+use App\Models\Candidature;
+use App\Models\Competence;
+
 
 class Offre extends Model
 {
-    //
+    public function entreprise()
+{
+    return $this->belongsTo(Entreprise::class);
+}
+
+
+public function candidatures()
+{
+    return $this->hasMany(Candidature::class);
+}
+
+
+public function competences()
+{
+    return $this->belongsToMany(Competence::class);
+}
 }
