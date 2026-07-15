@@ -1,0 +1,166 @@
+diff --git a/app/Http/Requests/LoginRequest.php b/app/Http/Requests/LoginRequest.php
+index 4360044..29e4760 100644
+--- a/app/Http/Requests/LoginRequest.php
++++ b/app/Http/Requests/LoginRequest.php
+@@ -12,7 +12,7 @@ class LoginRequest extends FormRequest
+      */
+     public function authorize(): bool
+     {
+-        return false;
++        return true;
+     }
+ 
+     /**
+diff --git a/app/Http/Requests/RegisterRequest.php b/app/Http/Requests/RegisterRequest.php
+index ec4c19d..6655d59 100644
+--- a/app/Http/Requests/RegisterRequest.php
++++ b/app/Http/Requests/RegisterRequest.php
+@@ -12,7 +12,7 @@ class RegisterRequest extends FormRequest
+      */
+     public function authorize(): bool
+     {
+-        return false;
++        return true;
+     }
+ 
+     /**
+diff --git a/app/Http/Requests/StoreOffreRequest.php b/app/Http/Requests/StoreOffreRequest.php
+index 41dc28e..2c65a92 100644
+--- a/app/Http/Requests/StoreOffreRequest.php
++++ b/app/Http/Requests/StoreOffreRequest.php
+@@ -12,7 +12,7 @@ class StoreOffreRequest extends FormRequest
+      */
+     public function authorize(): bool
+     {
+-        return false;
++        return true;
+     }
+ 
+     /**
+diff --git a/app/Http/Requests/UpdateOffreRequest.php b/app/Http/Requests/UpdateOffreRequest.php
+index b1829a8..f1da23f 100644
+--- a/app/Http/Requests/UpdateOffreRequest.php
++++ b/app/Http/Requests/UpdateOffreRequest.php
+@@ -12,7 +12,7 @@ class UpdateOffreRequest extends FormRequest
+      */
+     public function authorize(): bool
+     {
+-        return false;
++        return true;
+     }
+ 
+     /**
+diff --git a/app/Models/Candidature.php b/app/Models/Candidature.php
+index f20251c..ad043fd 100644
+--- a/app/Models/Candidature.php
++++ b/app/Models/Candidature.php
+@@ -9,6 +9,12 @@
+ 
+ class Candidature extends Model
+ {
++    protected $fillable = [
++        'user_id',
++        'offre_id',
++        'status',
++    ];
++
+     public function user()
+ {
+     return $this->belongsTo(User::class);
+diff --git a/app/Models/Competence.php b/app/Models/Competence.php
+index 6889b0f..228170b 100644
+--- a/app/Models/Competence.php
++++ b/app/Models/Competence.php
+@@ -7,6 +7,10 @@
+ 
+ class Competence extends Model
+ {
++    protected $fillable = [
++        'name',
++    ];
++
+     public function offres()
+ {
+     return $this->belongsToMany(Offre::class);
+diff --git a/app/Models/Offre.php b/app/Models/Offre.php
+index acdca8e..0963fad 100644
+--- a/app/Models/Offre.php
++++ b/app/Models/Offre.php
+@@ -10,6 +10,13 @@
+ 
+ class Offre extends Model
+ {
++    protected $fillable = [
++        'entreprise_id',
++        'title',
++        'description',
++        'contract_type',
++    ];
++
+     public function entreprise()
+ {
+     return $this->belongsTo(Entreprise::class);
+diff --git a/database/factories/UserFactory.php b/database/factories/UserFactory.php
+index c4ceb07..c7d3019 100644
+--- a/database/factories/UserFactory.php
++++ b/database/factories/UserFactory.php
+@@ -25,10 +25,12 @@ class UserFactory extends Factory
+     public function definition(): array
+     {
+         return [
+-            'name' => fake()->name(),
++            'first_name' => fake()->firstName(),
++            'last_name' => fake()->lastName(),
+             'email' => fake()->unique()->safeEmail(),
+             'email_verified_at' => now(),
+             'password' => static::$password ??= Hash::make('password'),
++            'role' => fake()->randomElement(['candidate', 'company', 'admin']),
+             'remember_token' => Str::random(10),
+         ];
+     }
+diff --git a/database/migrations/0001_01_01_000000_create_users_table.php b/database/migrations/0001_01_01_000000_create_users_table.php
+index 98a566b..5850f6b 100644
+--- a/database/migrations/0001_01_01_000000_create_users_table.php
++++ b/database/migrations/0001_01_01_000000_create_users_table.php
+@@ -13,10 +13,12 @@ public function up(): void
+     {
+         Schema::create('users', function (Blueprint $table) {
+             $table->id();
+-            $table->string('name');
++            $table->string('first_name');
++            $table->string('last_name');
+             $table->string('email')->unique();
+             $table->timestamp('email_verified_at')->nullable();
+             $table->string('password');
++            $table->enum('role', ['candidate', 'company', 'admin']);
+             $table->rememberToken();
+             $table->timestamps();
+         });
+@@ -35,11 +37,6 @@ public function up(): void
+             $table->longText('payload');
+             $table->integer('last_activity')->index();
+         });
+-           Schema::table('users', function (Blueprint $table) {
+-        $table->string('first_name');
+-        $table->string('last_name');
+-        $table->enum('role', ['candidate', 'company', 'admin']);
+-    });
+     }
+ 
+     /**
+diff --git a/database/seeders/DatabaseSeeder.php b/database/seeders/DatabaseSeeder.php
+index 6b901f8..2753b61 100644
+--- a/database/seeders/DatabaseSeeder.php
++++ b/database/seeders/DatabaseSeeder.php
+@@ -18,8 +18,10 @@ public function run(): void
+         // User::factory(10)->create();
+ 
+         User::factory()->create([
+-            'name' => 'Test User',
++            'first_name' => 'Test',
++            'last_name' => 'User',
+             'email' => 'test@example.com',
++            'role' => 'candidate',
+         ]);
+     }
+ }

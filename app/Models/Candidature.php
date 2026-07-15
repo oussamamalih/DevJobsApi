@@ -9,6 +9,12 @@ use App\Models\Offre;
 
 class Candidature extends Model
 {
+    protected $fillable = [
+        'user_id',
+        'offre_id',
+        'status',
+    ];
+
     public function user()
 {
     return $this->belongsTo(User::class);

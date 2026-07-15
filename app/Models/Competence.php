@@ -7,6 +7,10 @@ use App\Models\Offre;
 
 class Competence extends Model
 {
+    protected $fillable = [
+        'name',
+    ];
+
     public function offres()
 {
     return $this->belongsToMany(Offre::class);

@@ -10,6 +10,13 @@ use App\Models\Competence;
 
 class Offre extends Model
 {
+    protected $fillable = [
+        'entreprise_id',
+        'title',
+        'description',
+        'contract_type',
+    ];
+
     public function entreprise()
 {
     return $this->belongsTo(Entreprise::class);
