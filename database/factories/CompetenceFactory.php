@@ -10,15 +10,15 @@ use Illuminate\Database\Eloquent\Factories\Factory;
  */
 class CompetenceFactory extends Factory
 {
-    /**
-     * Define the model's default state.
-     *
-     * @return array<string, mixed>
-     */
     public function definition(): array
     {
         return [
-            //
+            'name' => fake()->unique()->randomElement([
+                'PHP', 'Laravel', 'JavaScript', 'React', 'Vue.js', 'Node.js',
+                'MySQL', 'PostgreSQL', 'MongoDB', 'Docker', 'Git', 'AWS',
+                'TypeScript', 'Tailwind CSS', 'REST API', 'GraphQL',
+                'Python', 'Django', 'Symfony', 'Redis',
+            ]),
         ];
     }
 }

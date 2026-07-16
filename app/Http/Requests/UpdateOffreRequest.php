@@ -23,7 +23,11 @@ class UpdateOffreRequest extends FormRequest
     public function rules(): array
     {
         return [
-            //
+            'title' => 'sometimes|required|string|max:255',
+            'description' => 'sometimes|required|string',
+            'contract_type' => 'sometimes|required|string|in:CDI,CDD,Stage,Freelance',
+            'competences' => 'sometimes|array',
+            'competences.*' => 'integer|exists:competences,id',
         ];
     }
 }

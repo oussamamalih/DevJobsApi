@@ -23,7 +23,11 @@ class StoreOffreRequest extends FormRequest
     public function rules(): array
     {
         return [
-            //
+            'title' => 'required|string|max:255',
+            'description' => 'required|string',
+            'contract_type' => 'required|string|in:CDI,CDD,Stage,Freelance',
+            'competences' => 'sometimes|array',
+            'competences.*' => 'integer|exists:competences,id',
         ];
     }
 }

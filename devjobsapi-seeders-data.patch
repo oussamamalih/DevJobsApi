@@ -1,0 +1,831 @@
+diff --git a/app/Http/Controllers/Api/CompetenceController.php b/app/Http/Controllers/Api/CompetenceController.php
+index a87c0ed..cb106db 100644
+--- a/app/Http/Controllers/Api/CompetenceController.php
++++ b/app/Http/Controllers/Api/CompetenceController.php
+@@ -3,24 +3,33 @@
+ namespace App\Http\Controllers\Api;
+ 
+ use App\Http\Controllers\Controller;
++use App\Models\Competence;
+ use Illuminate\Http\Request;
+ 
+ class CompetenceController extends Controller
+ {
+     /**
+      * Display a listing of the resource.
++     * Public: anyone can see the list of skills.
+      */
+     public function index()
+     {
+-        //
++        return response()->json(Competence::all());
+     }
+ 
+     /**
+      * Store a newly created resource in storage.
++     * Only admins can create new skills (enforced by route middleware).
+      */
+     public function store(Request $request)
+     {
+-        //
++        $validated = $request->validate([
++            'name' => 'required|string|max:255|unique:competences,name',
++        ]);
++
++        $competence = Competence::create($validated);
++
++        return response()->json($competence, 201);
+     }
+ 
+     /**
+@@ -28,22 +37,39 @@ public function store(Request $request)
+      */
+     public function show(string $id)
+     {
+-        //
++        $competence = Competence::findOrFail($id);
++
++        return response()->json($competence);
+     }
+ 
+     /**
+      * Update the specified resource in storage.
++     * Only admins can update skills (enforced by route middleware).
+      */
+     public function update(Request $request, string $id)
+     {
+-        //
++        $competence = Competence::findOrFail($id);
++
++        $validated = $request->validate([
++            'name' => 'sometimes|required|string|max:255|unique:competences,name,' . $competence->id,
++        ]);
++
++        $competence->update($validated);
++
++        return response()->json($competence);
+     }
+ 
+     /**
+      * Remove the specified resource from storage.
++     * Only admins can delete skills (enforced by route middleware).
+      */
+     public function destroy(string $id)
+     {
+-        //
++        $competence = Competence::findOrFail($id);
++        $competence->delete();
++
++        return response()->json([
++            'message' => 'Competence deleted successfully.',
++        ]);
+     }
+ }
+diff --git a/app/Http/Controllers/Api/EntrepriseController.php b/app/Http/Controllers/Api/EntrepriseController.php
+index 656a602..3541dc8 100644
+--- a/app/Http/Controllers/Api/EntrepriseController.php
++++ b/app/Http/Controllers/Api/EntrepriseController.php
+@@ -3,24 +3,43 @@
+ namespace App\Http\Controllers\Api;
+ 
+ use App\Http\Controllers\Controller;
++use App\Models\Entreprise;
+ use Illuminate\Http\Request;
+ 
+ class EntrepriseController extends Controller
+ {
+     /**
+      * Display a listing of the resource.
++     * Public: anyone can browse companies.
+      */
+     public function index()
+     {
+-        //
++        return response()->json(Entreprise::all());
+     }
+ 
+     /**
+      * Store a newly created resource in storage.
++     * Only a 'company' user can create their own entreprise profile.
+      */
+     public function store(Request $request)
+     {
+-        //
++        // A company user can only have one entreprise profile.
++        if ($request->user()->entreprise) {
++            return response()->json([
++                'message' => 'You already have a company profile.',
++            ], 409);
++        }
++
++        $validated = $request->validate([
++            'name' => 'required|string|max:255',
++            'sector' => 'required|string|max:255',
++            'description' => 'nullable|string',
++            'logo' => 'nullable|string',
++        ]);
++
++        $entreprise = $request->user()->entreprise()->create($validated);
++
++        return response()->json($entreprise, 201);
+     }
+ 
+     /**
+@@ -28,22 +47,55 @@ public function store(Request $request)
+      */
+     public function show(string $id)
+     {
+-        //
++        $entreprise = Entreprise::findOrFail($id);
++
++        return response()->json($entreprise);
+     }
+ 
+     /**
+      * Update the specified resource in storage.
++     * Only the owning company (or admin) can update it.
+      */
+     public function update(Request $request, string $id)
+     {
+-        //
++        $entreprise = Entreprise::findOrFail($id);
++
++        if ($request->user()->id !== $entreprise->user_id && $request->user()->role !== 'admin') {
++            return response()->json([
++                'message' => 'You are not authorized to update this company.',
++            ], 403);
++        }
++
++        $validated = $request->validate([
++            'name' => 'sometimes|required|string|max:255',
++            'sector' => 'sometimes|required|string|max:255',
++            'description' => 'nullable|string',
++            'logo' => 'nullable|string',
++        ]);
++
++        $entreprise->update($validated);
++
++        return response()->json($entreprise);
+     }
+ 
+     /**
+      * Remove the specified resource from storage.
++     * Only the owning company (or admin) can delete it.
+      */
+-    public function destroy(string $id)
++    public function destroy(Request $request, string $id)
+     {
+-        //
++        $entreprise = Entreprise::findOrFail($id);
++
++        if ($request->user()->id !== $entreprise->user_id && $request->user()->role !== 'admin') {
++            return response()->json([
++                'message' => 'You are not authorized to delete this company.',
++            ], 403);
++        }
++
++        $entreprise->delete();
++
++        return response()->json([
++            'message' => 'Entreprise deleted successfully.',
++        ]);
+     }
+ }
+diff --git a/app/Http/Controllers/Api/OffreController.php b/app/Http/Controllers/Api/OffreController.php
+index 8cd5917..c8df595 100644
+--- a/app/Http/Controllers/Api/OffreController.php
++++ b/app/Http/Controllers/Api/OffreController.php
+@@ -3,24 +3,46 @@
+ namespace App\Http\Controllers\Api;
+ 
+ use App\Http\Controllers\Controller;
++use App\Http\Requests\StoreOffreRequest;
++use App\Http\Requests\UpdateOffreRequest;
++use App\Models\Offre;
+ use Illuminate\Http\Request;
+ 
+ class OffreController extends Controller
+ {
+     /**
+      * Display a listing of the resource.
++     * Public: anyone can browse job offers.
+      */
+     public function index()
+     {
+-        //
++        $offres = Offre::with(['entreprise', 'competences'])->latest()->get();
++
++        return response()->json($offres);
+     }
+ 
+     /**
+      * Store a newly created resource in storage.
++     * Only a 'company' user that already has an entreprise profile can post offers.
+      */
+-    public function store(Request $request)
++    public function store(StoreOffreRequest $request)
+     {
+-        //
++        $entreprise = $request->user()->entreprise;
++
++        if (! $entreprise) {
++            return response()->json([
++                'message' => 'You need to create a company profile before posting offers.',
++            ], 422);
++        }
++
++        $offre = $entreprise->offres()->create($request->validated());
++
++        // Optional: attach skills if provided
++        if ($request->filled('competences')) {
++            $offre->competences()->sync($request->input('competences'));
++        }
++
++        return response()->json($offre->load('competences'), 201);
+     }
+ 
+     /**
+@@ -28,22 +50,52 @@ public function store(Request $request)
+      */
+     public function show(string $id)
+     {
+-        //
++        $offre = Offre::with(['entreprise', 'competences'])->findOrFail($id);
++
++        return response()->json($offre);
+     }
+ 
+     /**
+      * Update the specified resource in storage.
++     * Only the owning company (or admin) can update it.
+      */
+-    public function update(Request $request, string $id)
++    public function update(UpdateOffreRequest $request, string $id)
+     {
+-        //
++        $offre = Offre::findOrFail($id);
++
++        if ($request->user()->id !== $offre->entreprise->user_id && $request->user()->role !== 'admin') {
++            return response()->json([
++                'message' => 'You are not authorized to update this offer.',
++            ], 403);
++        }
++
++        $offre->update($request->validated());
++
++        if ($request->filled('competences')) {
++            $offre->competences()->sync($request->input('competences'));
++        }
++
++        return response()->json($offre->load('competences'));
+     }
+ 
+     /**
+      * Remove the specified resource from storage.
++     * Only the owning company (or admin) can delete it.
+      */
+-    public function destroy(string $id)
++    public function destroy(Request $request, string $id)
+     {
+-        //
++        $offre = Offre::findOrFail($id);
++
++        if ($request->user()->id !== $offre->entreprise->user_id && $request->user()->role !== 'admin') {
++            return response()->json([
++                'message' => 'You are not authorized to delete this offer.',
++            ], 403);
++        }
++
++        $offre->delete();
++
++        return response()->json([
++            'message' => 'Offre deleted successfully.',
++        ]);
+     }
+ }
+diff --git a/app/Http/Middleware/CheckRole.php b/app/Http/Middleware/CheckRole.php
+new file mode 100644
+index 0000000..42721bd
+--- /dev/null
++++ b/app/Http/Middleware/CheckRole.php
+@@ -0,0 +1,34 @@
++<?php
++
++namespace App\Http\Middleware;
++
++use Closure;
++use Illuminate\Http\Request;
++use Symfony\Component\HttpFoundation\Response;
++
++class CheckRole
++{
++    /**
++     * Handle an incoming request.
++     *
++     * Usage in routes: ->middleware('role:company,admin')
++     */
++    public function handle(Request $request, Closure $next, string ...$roles): Response
++    {
++        $user = $request->user();
++
++        if (! $user) {
++            return response()->json([
++                'message' => 'Unauthenticated.',
++            ], 401);
++        }
++
++        if (! in_array($user->role, $roles, true)) {
++            return response()->json([
++                'message' => 'You are not authorized to perform this action.',
++            ], 403);
++        }
++
++        return $next($request);
++    }
++}
+diff --git a/app/Http/Requests/LoginRequest.php b/app/Http/Requests/LoginRequest.php
+index 4360044..29e4760 100644
+--- a/app/Http/Requests/LoginRequest.php
++++ b/app/Http/Requests/LoginRequest.php
+@@ -12,7 +12,7 @@ class LoginRequest extends FormRequest
+      */
+     public function authorize(): bool
+     {
+-        return false;
++        return true;
+     }
+ 
+     /**
+diff --git a/app/Http/Requests/RegisterRequest.php b/app/Http/Requests/RegisterRequest.php
+index ec4c19d..6655d59 100644
+--- a/app/Http/Requests/RegisterRequest.php
++++ b/app/Http/Requests/RegisterRequest.php
+@@ -12,7 +12,7 @@ class RegisterRequest extends FormRequest
+      */
+     public function authorize(): bool
+     {
+-        return false;
++        return true;
+     }
+ 
+     /**
+diff --git a/app/Http/Requests/StoreOffreRequest.php b/app/Http/Requests/StoreOffreRequest.php
+index 41dc28e..42c36c8 100644
+--- a/app/Http/Requests/StoreOffreRequest.php
++++ b/app/Http/Requests/StoreOffreRequest.php
+@@ -12,7 +12,7 @@ class StoreOffreRequest extends FormRequest
+      */
+     public function authorize(): bool
+     {
+-        return false;
++        return true;
+     }
+ 
+     /**
+@@ -23,7 +23,11 @@ public function authorize(): bool
+     public function rules(): array
+     {
+         return [
+-            //
++            'title' => 'required|string|max:255',
++            'description' => 'required|string',
++            'contract_type' => 'required|string|in:CDI,CDD,Stage,Freelance',
++            'competences' => 'sometimes|array',
++            'competences.*' => 'integer|exists:competences,id',
+         ];
+     }
+ }
+diff --git a/app/Http/Requests/UpdateOffreRequest.php b/app/Http/Requests/UpdateOffreRequest.php
+index b1829a8..22b4b38 100644
+--- a/app/Http/Requests/UpdateOffreRequest.php
++++ b/app/Http/Requests/UpdateOffreRequest.php
+@@ -12,7 +12,7 @@ class UpdateOffreRequest extends FormRequest
+      */
+     public function authorize(): bool
+     {
+-        return false;
++        return true;
+     }
+ 
+     /**
+@@ -23,7 +23,11 @@ public function authorize(): bool
+     public function rules(): array
+     {
+         return [
+-            //
++            'title' => 'sometimes|required|string|max:255',
++            'description' => 'sometimes|required|string',
++            'contract_type' => 'sometimes|required|string|in:CDI,CDD,Stage,Freelance',
++            'competences' => 'sometimes|array',
++            'competences.*' => 'integer|exists:competences,id',
+         ];
+     }
+ }
+diff --git a/app/Models/Candidature.php b/app/Models/Candidature.php
+index f20251c..ad043fd 100644
+--- a/app/Models/Candidature.php
++++ b/app/Models/Candidature.php
+@@ -9,6 +9,12 @@
+ 
+ class Candidature extends Model
+ {
++    protected $fillable = [
++        'user_id',
++        'offre_id',
++        'status',
++    ];
++
+     public function user()
+ {
+     return $this->belongsTo(User::class);
+diff --git a/app/Models/Competence.php b/app/Models/Competence.php
+index 6889b0f..228170b 100644
+--- a/app/Models/Competence.php
++++ b/app/Models/Competence.php
+@@ -7,6 +7,10 @@
+ 
+ class Competence extends Model
+ {
++    protected $fillable = [
++        'name',
++    ];
++
+     public function offres()
+ {
+     return $this->belongsToMany(Offre::class);
+diff --git a/app/Models/Offre.php b/app/Models/Offre.php
+index acdca8e..0963fad 100644
+--- a/app/Models/Offre.php
++++ b/app/Models/Offre.php
+@@ -10,6 +10,13 @@
+ 
+ class Offre extends Model
+ {
++    protected $fillable = [
++        'entreprise_id',
++        'title',
++        'description',
++        'contract_type',
++    ];
++
+     public function entreprise()
+ {
+     return $this->belongsTo(Entreprise::class);
+diff --git a/bootstrap/app.php b/bootstrap/app.php
+index c3928c5..a4d3862 100644
+--- a/bootstrap/app.php
++++ b/bootstrap/app.php
+@@ -3,6 +3,7 @@
+ use Illuminate\Foundation\Application;
+ use Illuminate\Foundation\Configuration\Exceptions;
+ use Illuminate\Foundation\Configuration\Middleware;
++use App\Http\Middleware\CheckRole;
+ 
+ return Application::configure(basePath: dirname(__DIR__))
+     ->withRouting(
+@@ -12,7 +13,9 @@
+         health: '/up',
+     )
+     ->withMiddleware(function (Middleware $middleware): void {
+-        //
++        $middleware->alias([
++            'role' => CheckRole::class,
++        ]);
+     })
+     ->withExceptions(function (Exceptions $exceptions): void {
+         //
+diff --git a/database/factories/CandidatureFactory.php b/database/factories/CandidatureFactory.php
+index 7504122..a9120c0 100644
+--- a/database/factories/CandidatureFactory.php
++++ b/database/factories/CandidatureFactory.php
+@@ -2,23 +2,21 @@
+ 
+ namespace Database\Factories;
+ 
+-use App\Models\Candidature;
++use App\Models\Offre;
++use App\Models\User;
+ use Illuminate\Database\Eloquent\Factories\Factory;
+ 
+ /**
+- * @extends Factory<Candidature>
++ * @extends Factory<\App\Models\Candidature>
+  */
+ class CandidatureFactory extends Factory
+ {
+-    /**
+-     * Define the model's default state.
+-     *
+-     * @return array<string, mixed>
+-     */
+     public function definition(): array
+     {
+         return [
+-            //
++            'user_id' => User::factory()->state(['role' => 'candidate']),
++            'offre_id' => Offre::factory(),
++            'status' => fake()->randomElement(['pending', 'accepted', 'refused']),
+         ];
+     }
+ }
+diff --git a/database/factories/CompetenceFactory.php b/database/factories/CompetenceFactory.php
+index ec0b82d..aa9918a 100644
+--- a/database/factories/CompetenceFactory.php
++++ b/database/factories/CompetenceFactory.php
+@@ -10,15 +10,15 @@
+  */
+ class CompetenceFactory extends Factory
+ {
+-    /**
+-     * Define the model's default state.
+-     *
+-     * @return array<string, mixed>
+-     */
+     public function definition(): array
+     {
+         return [
+-            //
++            'name' => fake()->unique()->randomElement([
++                'PHP', 'Laravel', 'JavaScript', 'React', 'Vue.js', 'Node.js',
++                'MySQL', 'PostgreSQL', 'MongoDB', 'Docker', 'Git', 'AWS',
++                'TypeScript', 'Tailwind CSS', 'REST API', 'GraphQL',
++                'Python', 'Django', 'Symfony', 'Redis',
++            ]),
+         ];
+     }
+ }
+diff --git a/database/factories/EntrepriseFactory.php b/database/factories/EntrepriseFactory.php
+index 8a61352..7f7bf5d 100644
+--- a/database/factories/EntrepriseFactory.php
++++ b/database/factories/EntrepriseFactory.php
+@@ -2,23 +2,25 @@
+ 
+ namespace Database\Factories;
+ 
+-use App\Models\Entreprise;
++use App\Models\User;
+ use Illuminate\Database\Eloquent\Factories\Factory;
+ 
+ /**
+- * @extends Factory<Entreprise>
++ * @extends Factory<\App\Models\Entreprise>
+  */
+ class EntrepriseFactory extends Factory
+ {
+-    /**
+-     * Define the model's default state.
+-     *
+-     * @return array<string, mixed>
+-     */
+     public function definition(): array
+     {
+         return [
+-            //
++            'user_id' => User::factory()->state(['role' => 'company']),
++            'name' => fake()->company(),
++            'sector' => fake()->randomElement([
++                'IT', 'Finance', 'Santé', 'Education', 'E-commerce',
++                'Industrie', 'Télécommunications', 'Marketing',
++            ]),
++            'description' => fake()->paragraph(3),
++            'logo' => null,
+         ];
+     }
+ }
+diff --git a/database/factories/OffreFactory.php b/database/factories/OffreFactory.php
+index d5772e4..cecfdc4 100644
+--- a/database/factories/OffreFactory.php
++++ b/database/factories/OffreFactory.php
+@@ -2,23 +2,26 @@
+ 
+ namespace Database\Factories;
+ 
+-use App\Models\Offre;
++use App\Models\Entreprise;
+ use Illuminate\Database\Eloquent\Factories\Factory;
+ 
+ /**
+- * @extends Factory<Offre>
++ * @extends Factory<\App\Models\Offre>
+  */
+ class OffreFactory extends Factory
+ {
+-    /**
+-     * Define the model's default state.
+-     *
+-     * @return array<string, mixed>
+-     */
+     public function definition(): array
+     {
+         return [
+-            //
++            'entreprise_id' => Entreprise::factory(),
++            'title' => fake()->randomElement([
++                'Développeur Laravel', 'Développeur Full Stack', 'Frontend Developer (React)',
++                'Ingénieur DevOps', 'Data Analyst', 'Chef de projet IT',
++                'Développeur Mobile Flutter', 'Administrateur Systèmes',
++                'UI/UX Designer', 'Développeur Backend Node.js',
++            ]),
++            'description' => fake()->paragraphs(3, true),
++            'contract_type' => fake()->randomElement(['CDI', 'CDD', 'Stage', 'Freelance']),
+         ];
+     }
+ }
+diff --git a/database/factories/UserFactory.php b/database/factories/UserFactory.php
+index c4ceb07..c7d3019 100644
+--- a/database/factories/UserFactory.php
++++ b/database/factories/UserFactory.php
+@@ -25,10 +25,12 @@ class UserFactory extends Factory
+     public function definition(): array
+     {
+         return [
+-            'name' => fake()->name(),
++            'first_name' => fake()->firstName(),
++            'last_name' => fake()->lastName(),
+             'email' => fake()->unique()->safeEmail(),
+             'email_verified_at' => now(),
+             'password' => static::$password ??= Hash::make('password'),
++            'role' => fake()->randomElement(['candidate', 'company', 'admin']),
+             'remember_token' => Str::random(10),
+         ];
+     }
+diff --git a/database/migrations/0001_01_01_000000_create_users_table.php b/database/migrations/0001_01_01_000000_create_users_table.php
+index 98a566b..5850f6b 100644
+--- a/database/migrations/0001_01_01_000000_create_users_table.php
++++ b/database/migrations/0001_01_01_000000_create_users_table.php
+@@ -13,10 +13,12 @@ public function up(): void
+     {
+         Schema::create('users', function (Blueprint $table) {
+             $table->id();
+-            $table->string('name');
++            $table->string('first_name');
++            $table->string('last_name');
+             $table->string('email')->unique();
+             $table->timestamp('email_verified_at')->nullable();
+             $table->string('password');
++            $table->enum('role', ['candidate', 'company', 'admin']);
+             $table->rememberToken();
+             $table->timestamps();
+         });
+@@ -35,11 +37,6 @@ public function up(): void
+             $table->longText('payload');
+             $table->integer('last_activity')->index();
+         });
+-           Schema::table('users', function (Blueprint $table) {
+-        $table->string('first_name');
+-        $table->string('last_name');
+-        $table->enum('role', ['candidate', 'company', 'admin']);
+-    });
+     }
+ 
+     /**
+diff --git a/database/seeders/DatabaseSeeder.php b/database/seeders/DatabaseSeeder.php
+index 6b901f8..8c10b2c 100644
+--- a/database/seeders/DatabaseSeeder.php
++++ b/database/seeders/DatabaseSeeder.php
+@@ -2,6 +2,10 @@
+ 
+ namespace Database\Seeders;
+ 
++use App\Models\Candidature;
++use App\Models\Competence;
++use App\Models\Entreprise;
++use App\Models\Offre;
+ use App\Models\User;
+ use Illuminate\Database\Console\Seeds\WithoutModelEvents;
+ use Illuminate\Database\Seeder;
+@@ -15,11 +19,73 @@ class DatabaseSeeder extends Seeder
+      */
+     public function run(): void
+     {
+-        // User::factory(10)->create();
++        // --- Test / fixed accounts (easy to log in with in Postman) ---
++        User::factory()->create([
++            'first_name' => 'Admin',
++            'last_name' => 'DevJobs',
++            'email' => 'admin@devjobs.test',
++            'password' => bcrypt('password'),
++            'role' => 'admin',
++        ]);
++
++        $demoCompanyUser = User::factory()->create([
++            'first_name' => 'Sara',
++            'last_name' => 'Alami',
++            'email' => 'company@devjobs.test',
++            'password' => bcrypt('password'),
++            'role' => 'company',
++        ]);
+ 
+         User::factory()->create([
+-            'name' => 'Test User',
+-            'email' => 'test@example.com',
++            'first_name' => 'Youssef',
++            'last_name' => 'Benali',
++            'email' => 'candidate@devjobs.test',
++            'password' => bcrypt('password'),
++            'role' => 'candidate',
+         ]);
++
++        // --- Skills pool (20 fixed skills) ---
++        $competences = Competence::factory(20)->create();
++
++        // --- One entreprise tied to the demo company account ---
++        $demoEntreprise = Entreprise::factory()->create([
++            'user_id' => $demoCompanyUser->id,
++            'name' => 'TechCorp',
++        ]);
++
++        Offre::factory(3)
++            ->create(['entreprise_id' => $demoEntreprise->id])
++            ->each(function (Offre $offre) use ($competences) {
++                $offre->competences()->attach(
++                    $competences->random(rand(2, 5))->pluck('id')
++                );
++            });
++
++        // --- 5 more random companies, each with 2-4 offers ---
++        Entreprise::factory(5)
++            ->create()
++            ->each(function (Entreprise $entreprise) use ($competences) {
++                Offre::factory(rand(2, 4))
++                    ->create(['entreprise_id' => $entreprise->id])
++                    ->each(function (Offre $offre) use ($competences) {
++                        $offre->competences()->attach(
++                            $competences->random(rand(2, 5))->pluck('id')
++                        );
++                    });
++            });
++
++        // --- 15 candidates applying to random offers ---
++        $candidates = User::factory(15)->state(['role' => 'candidate'])->create();
++        $offres = Offre::all();
++
++        foreach ($candidates as $candidate) {
++            // each candidate applies to 1-3 different offers
++            $offres->random(rand(1, 3))->unique('id')->each(function (Offre $offre) use ($candidate) {
++                Candidature::factory()->create([
++                    'user_id' => $candidate->id,
++                    'offre_id' => $offre->id,
++                ]);
++            });
++        }
+     }
+ }
+diff --git a/routes/api.php b/routes/api.php
+index 40d9ed8..81ee82a 100644
+--- a/routes/api.php
++++ b/routes/api.php
+@@ -4,6 +4,9 @@
+ use Illuminate\Support\Facades\Route;
+ 
+ use App\Http\Controllers\Api\AuthController;
++use App\Http\Controllers\Api\OffreController;
++use App\Http\Controllers\Api\EntrepriseController;
++use App\Http\Controllers\Api\CompetenceController;
+ 
+ 
+ // Test authenticated user
+@@ -18,4 +21,40 @@
+ Route::post('/login', [AuthController::class, 'login']);
+ 
+ Route::post('/logout', [AuthController::class, 'logout'])
+-    ->middleware('auth:sanctum');
+\ No newline at end of file
++    ->middleware('auth:sanctum');
++
++
++// Offres (job listings)
++Route::get('/offres', [OffreController::class, 'index']);
++Route::get('/offres/{offre}', [OffreController::class, 'show']);
++
++Route::middleware(['auth:sanctum', 'role:company,admin'])->group(function () {
++    Route::post('/offres', [OffreController::class, 'store']);
++    Route::put('/offres/{offre}', [OffreController::class, 'update']);
++    Route::delete('/offres/{offre}', [OffreController::class, 'destroy']);
++});
++
++
++// Entreprises (companies)
++Route::get('/entreprises', [EntrepriseController::class, 'index']);
++Route::get('/entreprises/{entreprise}', [EntrepriseController::class, 'show']);
++
++Route::middleware(['auth:sanctum', 'role:company'])->group(function () {
++    Route::post('/entreprises', [EntrepriseController::class, 'store']);
++});
++
++Route::middleware(['auth:sanctum', 'role:company,admin'])->group(function () {
++    Route::put('/entreprises/{entreprise}', [EntrepriseController::class, 'update']);
++    Route::delete('/entreprises/{entreprise}', [EntrepriseController::class, 'destroy']);
++});
++
++
++// Competences (skills) - read is public, write is admin only
++Route::get('/competences', [CompetenceController::class, 'index']);
++Route::get('/competences/{competence}', [CompetenceController::class, 'show']);
++
++Route::middleware(['auth:sanctum', 'role:admin'])->group(function () {
++    Route::post('/competences', [CompetenceController::class, 'store']);
++    Route::put('/competences/{competence}', [CompetenceController::class, 'update']);
++    Route::delete('/competences/{competence}', [CompetenceController::class, 'destroy']);
++});
+\ No newline at end of file
