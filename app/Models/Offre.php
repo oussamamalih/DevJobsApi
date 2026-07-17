@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use App\Models\Entreprise;
 use App\Models\Candidature;
 use App\Models\Competence;
@@ -10,6 +11,8 @@ use App\Models\Competence;
 
 class Offre extends Model
 {
+    use HasFactory;
+
     protected $fillable = [
         'entreprise_id',
         'title',

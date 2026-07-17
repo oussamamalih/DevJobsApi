@@ -18,6 +18,10 @@ class CompetenceFactory extends Factory
                 'MySQL', 'PostgreSQL', 'MongoDB', 'Docker', 'Git', 'AWS',
                 'TypeScript', 'Tailwind CSS', 'REST API', 'GraphQL',
                 'Python', 'Django', 'Symfony', 'Redis',
+                'Kubernetes', 'CI/CD', 'Angular', 'Next.js', 'Flutter',
+                'Swift', 'Kotlin', 'Java', 'Spring Boot', '.NET',
+                'C#', 'Ruby on Rails', 'Elasticsearch', 'RabbitMQ', 'Kafka',
+                'Linux', 'Bash', 'Terraform', 'Azure', 'GCP',
             ]),
         ];
     }
