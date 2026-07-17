@@ -1,59 +1,170 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# DevJobsApi
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+API REST développée avec **Laravel 11** pour une plateforme de recherche d'emploi (job board). Elle permet aux entreprises de publier des offres, aux candidats de postuler, et gère l'authentification via des rôles (`admin`, `company`, `candidate`).
 
-## About Laravel
+## 🛠️ Stack technique
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+- **Framework** : Laravel 11
+- **Base de données** : MySQL
+- **Authentification** : Laravel Sanctum (token-based)
+- **PHP** : 8.2+
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## 📊 Modèle de données
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+| Table | Description |
+|---|---|
+| `users` | Comptes utilisateurs (`first_name`, `last_name`, `email`, `password`, `role`) |
+| `entreprises` | Profil d'entreprise, lié à un `user` de rôle `company` |
+| `offres` | Offres d'emploi, liées à une `entreprise` |
+| `competences` | Compétences/skills (relation many-to-many avec `offres`) |
+| `candidatures` | Candidatures d'un `user` (candidate) à une `offre` |
+| `competence_offre` | Table pivot entre `offres` et `competences` |
 
-## Learning Laravel
+### Relations principales
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+- `User` **hasOne** `Entreprise` (si rôle `company`)
+- `Entreprise` **hasMany** `Offre`
+- `Offre` **belongsToMany** `Competence`
+- `User` (candidate) **hasMany** `Candidature`
+- `Candidature` **belongsTo** `User` et `Offre`
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+## 🔐 Rôles & permissions
 
-## Laravel Sponsors
+Trois rôles gérés via le champ `role` sur `users`, contrôlés par un middleware custom (`app/Http/Middleware/CheckRole.php`) :
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+| Rôle | Peut faire |
+|---|---|
+| `candidate` | Consulter les offres, postuler |
+| `company` | Créer/gérer son profil entreprise, publier/modifier/supprimer ses propres offres |
+| `admin` | Gérer les compétences (skills), modérer entreprises/offres |
 
-### Premium Partners
+Usage dans les routes :
+```php
+Route::middleware(['auth:sanctum', 'role:company,admin'])->group(function () {
+    // routes protégées
+});
+```
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+## 🚀 Installation
 
-## Contributing
+```bash
+git clone https://github.com/oussamamalih/DevJobsApi.git
+cd DevJobsApi
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+composer install
 
-## Code of Conduct
+cp .env.example .env
+php artisan key:generate
+```
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+Configurer la base de données dans `.env` :
+```env
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=devjobs_api
+DB_USERNAME=root
+DB_PASSWORD=
+```
 
-## Security Vulnerabilities
+Créer les tables et les données de test :
+```bash
+php artisan migrate:fresh --seed
+```
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+Lancer le serveur :
+```bash
+php artisan serve
+```
+L'API est disponible sur `http://127.0.0.1:8000/api`.
 
-## License
+## 👤 Comptes de test (après seed)
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+| Rôle | Email | Mot de passe |
+|---|---|---|
+| Admin | `admin@devjobs.test` | `password` |
+| Company | `company@devjobs.test` | `password` |
+| Candidate | `candidate@devjobs.test` | `password` |
+
+## 📡 Endpoints
+
+### Authentification
+
+| Méthode | Endpoint | Accès | Description |
+|---|---|---|---|
+| POST | `/api/register` | Public | Créer un compte |
+| POST | `/api/login` | Public | Se connecter, récupère un token |
+| POST | `/api/logout` | Auth | Révoque le token courant |
+| GET | `/api/user` | Auth | Infos de l'utilisateur connecté |
+
+### Offres
+
+| Méthode | Endpoint | Accès | Description |
+|---|---|---|---|
+| GET | `/api/offres` | Public | Liste toutes les offres |
+| GET | `/api/offres/{id}` | Public | Détail d'une offre |
+| POST | `/api/offres` | `company`, `admin` | Créer une offre |
+| PUT | `/api/offres/{id}` | `company` (propriétaire), `admin` | Modifier une offre |
+| DELETE | `/api/offres/{id}` | `company` (propriétaire), `admin` | Supprimer une offre |
+
+### Entreprises
+
+| Méthode | Endpoint | Accès | Description |
+|---|---|---|---|
+| GET | `/api/entreprises` | Public | Liste toutes les entreprises |
+| GET | `/api/entreprises/{id}` | Public | Détail d'une entreprise |
+| POST | `/api/entreprises` | `company` | Créer son profil entreprise |
+| PUT | `/api/entreprises/{id}` | `company` (propriétaire), `admin` | Modifier |
+| DELETE | `/api/entreprises/{id}` | `company` (propriétaire), `admin` | Supprimer |
+
+### Compétences
+
+| Méthode | Endpoint | Accès | Description |
+|---|---|---|---|
+| GET | `/api/competences` | Public | Liste toutes les compétences |
+| GET | `/api/competences/{id}` | Public | Détail d'une compétence |
+| POST | `/api/competences` | `admin` | Créer une compétence |
+| PUT | `/api/competences/{id}` | `admin` | Modifier |
+| DELETE | `/api/competences/{id}` | `admin` | Supprimer |
+
+> 🚧 Les endpoints pour `candidatures` et la gestion avancée des `users` sont en cours de développement.
+
+## 🔑 Authentification dans les requêtes
+
+Après login/register, ajouter le token reçu dans le header de chaque requête protégée :
+```
+Authorization: Bearer <votre_token>
+Accept: application/json
+```
+
+## 🧪 Exemple de requête (POST /api/offres)
+
+```json
+{
+  "title": "Développeur Laravel",
+  "description": "Nous recherchons un développeur Laravel expérimenté...",
+  "contract_type": "CDI",
+  "competences": [1, 3, 5]
+}
+```
+
+## 📁 Structure du projet
+
+```
+app/
+├── Http/
+│   ├── Controllers/Api/   # Logique métier (Auth, Offre, Entreprise, Competence...)
+│   ├── Middleware/        # CheckRole.php (contrôle d'accès par rôle)
+│   └── Requests/          # Validation (StoreOffreRequest, LoginRequest...)
+├── Models/                # Eloquent models + relations
+database/
+├── migrations/            # Schéma de la base de données
+├── factories/             # Génération de données fake
+└── seeders/                # Peuplement de la base pour les tests
+routes/
+└── api.php                # Déclaration des routes API
+```
+
+## 📄 Licence
+
+Projet académique — Laravel est open-source sous licence [MIT](https://opensource.org/licenses/MIT).
